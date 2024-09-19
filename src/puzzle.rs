@@ -1,5 +1,5 @@
 use rand::seq::SliceRandom;
-use std::{collections::HashSet, usize};
+use std::{collections::HashSet, str::FromStr, usize};
 
 const SIZE: usize = 9;
 const SUBGRID_SIZE: usize = 3;
@@ -243,6 +243,20 @@ fn is_valid_set(nums: &[u8]) -> bool {
         }
     }
     true
+}
+
+impl FromStr for Difficulty {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "easy" => Ok(Difficulty::Easy),
+            "medium" => Ok(Difficulty::Medium),
+            "hard" => Ok(Difficulty::Hard),
+            "expert" => Ok(Difficulty::Expert),
+            _ => Err(format!("Invalid difficulty: {}", s)),
+        }
+    }
 }
 
 #[cfg(test)]

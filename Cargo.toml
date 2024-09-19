@@ -7,4 +7,5 @@ edition = "2021"
 crossterm = "0.28.1"
 ratatui = "0.28.1"
 rand = "0.8.5"
+argh = "0.1.12"
 
