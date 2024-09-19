@@ -17,6 +17,7 @@ pub enum Difficulty {
 pub struct Cell {
     value: u8,
     is_clue: bool,
+    posible_wrong: bool,
 }
 
 impl Cell {
@@ -26,6 +27,10 @@ impl Cell {
 
     pub fn is_clue(&self) -> bool {
         self.is_clue
+    }
+
+    pub fn posible_wrong(&self) -> bool {
+        self.posible_wrong
     }
 }
 
@@ -44,6 +49,7 @@ impl Puzzle {
             grid: [[Cell {
                 value: 0,
                 is_clue: true,
+                posible_wrong: false,
             }; SIZE]; SIZE],
             clues: difficulty as usize,
             is_solved: false,
@@ -67,8 +73,11 @@ impl Puzzle {
         }
 
         if self.grid[row][col].value == 0 {
-            self.grid[row][col].value = num;
+            if !is_safe(&self.grid(), row, col, num) {
+                self.grid[row][col].posible_wrong = true;
+            }
 
+            self.grid[row][col].value = num;
             self.is_solved = self.check_if_solved();
         }
     }
@@ -79,6 +88,8 @@ impl Puzzle {
         }
 
         self.grid[row][col].value = 0;
+        self.grid[row][col].posible_wrong = false;
+
         self.is_solved = false;
     }
 
@@ -121,6 +132,7 @@ impl Puzzle {
             self.grid[row][col] = Cell {
                 value: 0,
                 is_clue: false,
+                posible_wrong: false,
             };
         }
     }
@@ -169,17 +181,12 @@ fn is_safe(grid: &Grid, row: usize, col: usize, num: u8) -> bool {
         )
 }
 
-fn is_in_row(grid: &Grid, row: usize, num: u8) -> bool {
+pub fn is_in_row(grid: &Grid, row: usize, num: u8) -> bool {
     grid[row].iter().any(|cell| cell.value == num)
 }
 
-fn is_in_col(grid: &Grid, col: usize, num: u8) -> bool {
-    for row in 0..SIZE {
-        if grid[row][col].value == num {
-            return true;
-        }
-    }
-    false
+pub fn is_in_col(grid: &Grid, col: usize, num: u8) -> bool {
+    grid.iter().any(|row| row[col].value == num)
 }
 
 fn is_in_subgrid(grid: &Grid, start_row: usize, start_col: usize, num: u8) -> bool {
@@ -242,8 +249,8 @@ fn is_valid_set(nums: &[u8]) -> bool {
 mod tests {
     use super::*;
 
-    const EASY_CLUES: usize = 29;
-    const MEDIUM_CLUES: usize = 28;
+    const EASY_CLUES: usize = 30;
+    const MEDIUM_CLUES: usize = 29;
     const HARD_CLUES: usize = 27;
     const EXPERT_CLUES: usize = 26;
 
@@ -319,21 +326,106 @@ mod tests {
         let mut grid = [[Cell {
             value: 0,
             is_clue: false,
+            posible_wrong: false,
         }; SIZE]; SIZE];
+
         grid[0][0] = Cell {
             value: 1,
-            is_clue: true,
+            is_clue: false,
+            posible_wrong: false,
         };
         grid[0][1] = Cell {
             value: 2,
-            is_clue: true,
+            is_clue: false,
+            posible_wrong: false,
         };
         grid[0][2] = Cell {
             value: 3,
-            is_clue: true,
+            is_clue: false,
+            posible_wrong: false,
         };
 
-        assert!(!is_safe(&grid, 0, 3, 1)); // 1 already in the row
-        assert!(is_safe(&grid, 1, 3, 4)); // 4 is safe to place
+        assert!(!is_safe(&grid, 0, 3, 1));
+        assert!(is_safe(&grid, 1, 3, 4));
+    }
+
+    #[test]
+    fn test_is_safe_row_conflict() {
+        let mut grid = [[Cell {
+            value: 0,
+            is_clue: false,
+            posible_wrong: false,
+        }; SIZE]; SIZE];
+
+        grid[0][0] = Cell {
+            value: 1,
+            posible_wrong: false,
+            is_clue: false,
+        };
+        grid[0][1] = Cell {
+            value: 2,
+            posible_wrong: false,
+            is_clue: false,
+        };
+
+        assert!(!is_safe(&grid, 0, 2, 1));
+        assert!(is_safe(&grid, 0, 2, 3));
+    }
+
+    #[test]
+    fn test_is_safe_column_conflict() {
+        let mut grid = [[Cell {
+            value: 0,
+            is_clue: false,
+            posible_wrong: false,
+        }; SIZE]; SIZE];
+
+        grid[0][0] = Cell {
+            value: 1,
+            is_clue: false,
+            posible_wrong: false,
+        };
+        grid[1][0] = Cell {
+            value: 2,
+            is_clue: false,
+            posible_wrong: false,
+        };
+
+        assert!(!is_safe(&grid, 2, 0, 1));
+        assert!(is_safe(&grid, 2, 0, 3));
+    }
+
+    #[test]
+    fn test_is_safe_subgrid_conflict() {
+        let mut grid = [[Cell {
+            value: 0,
+            is_clue: false,
+            posible_wrong: false,
+        }; SIZE]; SIZE];
+
+        grid[0][0] = Cell {
+            value: 1,
+            is_clue: false,
+            posible_wrong: false,
+        };
+        grid[1][1] = Cell {
+            value: 2,
+            is_clue: false,
+            posible_wrong: false,
+        };
+
+        assert!(!is_safe(&grid, 1, 1, 1));
+        assert!(is_safe(&grid, 1, 1, 3));
+    }
+
+    #[test]
+    fn test_is_safe_empty_cell() {
+        let grid = [[Cell {
+            value: 0,
+            posible_wrong: false,
+            is_clue: false,
+        }; SIZE]; SIZE];
+
+        assert!(is_safe(&grid, 4, 4, 5));
     }
 }

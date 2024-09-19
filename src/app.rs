@@ -17,7 +17,10 @@ use std::{
     usize,
 };
 
-use crate::{puzzle::Puzzle, Difficulty};
+use crate::{
+    puzzle::{is_in_col, is_in_row, Puzzle},
+    Difficulty,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct App {
@@ -249,15 +252,20 @@ impl Widget for &App {
                                 Style::default().fg(ratatui::style::Color::Yellow).bold(),
                             )
                         } else {
-                            // TODO: add check if its safe to add this number.
-                            (cell.value().to_string(), Style::default())
+                            let cell_style = if cell.posible_wrong() {
+                                Style::default().fg(ratatui::style::Color::Red).bold()
+                            } else {
+                                Style::default().fg(ratatui::style::Color::Blue).bold()
+                            };
+
+                            (cell.value().to_string(), cell_style)
                         }
                     };
 
                     // highlight the selected cell
                     let is_selected = self.selected_row == row && self.selected_col == col;
                     let cell_style = if is_selected {
-                        style.bg(ratatui::style::Color::LightBlue)
+                        style.underlined()
                     } else {
                         style
                     };
