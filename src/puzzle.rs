@@ -1,26 +1,40 @@
 use rand::seq::SliceRandom;
-use std::{collections::HashSet, str::FromStr, usize};
+use std::{collections::HashSet, str::FromStr};
 
 const SIZE: usize = 9;
 const SUBGRID_SIZE: usize = 3;
+const EASY_CLUES: usize = 36;
+const MEDIUM_CLUES: usize = 34;
+const HARD_CLUES: usize = 32;
+const EXPERT_CLUES: usize = 30;
+
+pub type Grid = [[Cell; SIZE]; SIZE];
 
 #[repr(usize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Difficulty {
-    Easy = 30,
-    Medium = 29,
-    Hard = 27,
-    Expert = 26,
+    Easy = EASY_CLUES,
+    Medium = MEDIUM_CLUES,
+    Hard = HARD_CLUES,
+    Expert = EXPERT_CLUES,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cell {
     value: u8,
     is_clue: bool,
-    posible_wrong: bool,
+    possible_wrong: bool,
 }
 
 impl Cell {
+    pub fn new(value: u8, is_clue: bool) -> Self {
+        Self {
+            value,
+            is_clue,
+            possible_wrong: false,
+        }
+    }
+
     pub fn value(&self) -> u8 {
         self.value
     }
@@ -30,11 +44,9 @@ impl Cell {
     }
 
     pub fn posible_wrong(&self) -> bool {
-        self.posible_wrong
+        self.possible_wrong
     }
 }
-
-pub type Grid = [[Cell; SIZE]; SIZE];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Puzzle {
@@ -46,11 +58,7 @@ pub struct Puzzle {
 impl Puzzle {
     pub fn new(difficulty: Difficulty) -> Self {
         let mut puzzle = Puzzle {
-            grid: [[Cell {
-                value: 0,
-                is_clue: true,
-                posible_wrong: false,
-            }; SIZE]; SIZE],
+            grid: [[Cell::new(0, true); SIZE]; SIZE],
             clues: difficulty as usize,
             is_solved: false,
         };
@@ -74,7 +82,7 @@ impl Puzzle {
 
         if self.grid[row][col].value == 0 {
             if !is_safe(&self.grid(), row, col, num) {
-                self.grid[row][col].posible_wrong = true;
+                self.grid[row][col].possible_wrong = true;
             }
 
             self.grid[row][col].value = num;
@@ -88,7 +96,7 @@ impl Puzzle {
         }
 
         self.grid[row][col].value = 0;
-        self.grid[row][col].posible_wrong = false;
+        self.grid[row][col].possible_wrong = false;
 
         self.is_solved = false;
     }
@@ -119,7 +127,7 @@ impl Puzzle {
         fill_grid(&mut self.grid);
     }
 
-    // Remove numbers from the grid while leaving 'clues' numbers
+    // remove numbers from the grid while leaving 'clues' numbers
     fn remove_numbers(&mut self) {
         let mut rng = rand::thread_rng();
         let mut positions: Vec<(usize, usize)> = (0..SIZE)
@@ -129,30 +137,28 @@ impl Puzzle {
 
         let cells_to_remove = SIZE * SIZE - self.clues;
         for &(row, col) in &positions[..cells_to_remove] {
-            self.grid[row][col] = Cell {
-                value: 0,
-                is_clue: false,
-                posible_wrong: false,
-            };
+            self.grid[row][col] = Cell::new(0, false)
         }
     }
 
-    // Validate if the current grid is a valid Sudoku solution
+    // validate if the current grid is a valid Sudoku solution
     pub fn validate(&self) -> bool {
         validate_sudoku(&self.grid)
     }
 }
 
 // recursive function to fill the grid with numbers that follow Sudoku rules
+//
+//
 fn fill_grid(grid: &mut Grid) -> bool {
-    let numbers: Vec<u8> = (1..=9).collect();
+    let mut numbers: Vec<u8> = (1..=9).collect();
+    let mut rng = rand::thread_rng();
+
     for row in 0..SIZE {
         for col in 0..SIZE {
             if grid[row][col].value == 0 {
-                let mut choices = numbers.clone();
-                choices.shuffle(&mut rand::thread_rng());
-
-                for num in choices {
+                numbers.shuffle(&mut rng);
+                for &num in &numbers {
                     if is_safe(grid, row, col, num) {
                         grid[row][col].value = num;
                         if fill_grid(grid) {
@@ -161,7 +167,6 @@ fn fill_grid(grid: &mut Grid) -> bool {
                         grid[row][col].value = 0;
                     }
                 }
-
                 return false; // Backtrack
             }
         }
@@ -190,28 +195,22 @@ pub fn is_in_col(grid: &Grid, col: usize, num: u8) -> bool {
 }
 
 fn is_in_subgrid(grid: &Grid, start_row: usize, start_col: usize, num: u8) -> bool {
-    for row in 0..SUBGRID_SIZE {
-        for col in 0..SUBGRID_SIZE {
-            if grid[row + start_row][col + start_col].value == num {
-                return true;
-            }
-        }
-    }
-    false
+    (0..SUBGRID_SIZE)
+        .any(|i| (0..SUBGRID_SIZE).any(|j| grid[start_row + i][start_col + j].value == num))
 }
 
-// Validate the entire grid for a valid Sudoku solution
+// validate the entire grid for a valid Sudoku solution
 fn validate_sudoku(grid: &Grid) -> bool {
-    for row in 0..SIZE {
-        if !is_valid_set(&grid[row].iter().map(|cell| cell.value).collect::<Vec<_>>()) {
+    for row in grid.iter() {
+        if !is_valid_set(&row.iter().map(|cell| cell.value).collect::<Vec<_>>()) {
             return false;
         }
     }
 
     for col in 0..SIZE {
         let mut column: Vec<u8> = Vec::new();
-        for row in 0..SIZE {
-            column.push(grid[row][col].value);
+        for row in grid.iter() {
+            column.push(row[col].value);
         }
         if !is_valid_set(&column) {
             return false;
@@ -262,11 +261,6 @@ impl FromStr for Difficulty {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const EASY_CLUES: usize = 30;
-    const MEDIUM_CLUES: usize = 29;
-    const HARD_CLUES: usize = 27;
-    const EXPERT_CLUES: usize = 26;
 
     #[test]
     fn test_puzzle_generation_easy() {

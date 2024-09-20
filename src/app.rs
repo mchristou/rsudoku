@@ -14,13 +14,9 @@ use ratatui::{
 use std::{
     io::{self},
     time::{Duration, Instant},
-    usize,
 };
 
-use crate::{
-    puzzle::{is_in_col, is_in_row, Puzzle},
-    Difficulty,
-};
+use crate::{puzzle::Puzzle, Difficulty};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct App {
@@ -87,27 +83,19 @@ impl App {
                 self.puzzle.reset();
             }
             KeyCode::Left => {
-                if self.selected_col > 0 {
-                    self.selected_col -= 1;
-                }
+                self.selected_col = self.selected_col.saturating_sub(1);
             }
             KeyCode::Right => {
-                if self.selected_col < 8 {
-                    self.selected_col += 1;
-                }
+                self.selected_col = self.selected_col.saturating_add(1).min(8);
             }
             KeyCode::Up => {
-                if self.selected_row > 0 {
-                    self.selected_row -= 1;
-                }
+                self.selected_row = self.selected_row.saturating_sub(1);
             }
             KeyCode::Down => {
-                if self.selected_row < 8 {
-                    self.selected_row += 1;
-                }
+                self.selected_row = self.selected_row.saturating_add(1).min(8);
             }
             KeyCode::Char(c) if c.is_numeric() => {
-                let num = c as u8 - '0' as u8;
+                let num = c as u8 - b'0';
                 self.puzzle
                     .insert_number(self.selected_row, self.selected_col, num);
 
@@ -245,21 +233,19 @@ impl Widget for &App {
                     let cell = self.puzzle.grid()[row][col];
                     let (symbol, style) = if cell.value() == 0 {
                         (" ".into(), Style::default()) // empty cell
+                    } else if cell.is_clue() {
+                        (
+                            cell.value().to_string(),
+                            Style::default().fg(ratatui::style::Color::Yellow).bold(),
+                        )
                     } else {
-                        if cell.is_clue() {
-                            (
-                                cell.value().to_string(),
-                                Style::default().fg(ratatui::style::Color::Yellow).bold(),
-                            )
+                        let cell_style = if cell.posible_wrong() {
+                            Style::default().fg(ratatui::style::Color::Red).bold()
                         } else {
-                            let cell_style = if cell.posible_wrong() {
-                                Style::default().fg(ratatui::style::Color::Red).bold()
-                            } else {
-                                Style::default().fg(ratatui::style::Color::Blue).bold()
-                            };
+                            Style::default().fg(ratatui::style::Color::Blue).bold()
+                        };
 
-                            (cell.value().to_string(), cell_style)
-                        }
+                        (cell.value().to_string(), cell_style)
                     };
 
                     // highlight the selected cell
@@ -273,13 +259,7 @@ impl Widget for &App {
                     // center the symbol in the cell
                     let x_offset = (cell_size) / 2;
                     let y_offset = (cell_size) / 2;
-                    buf.set_stringn(
-                        x + x_offset,
-                        y + y_offset,
-                        symbol.to_string(),
-                        1,
-                        cell_style,
-                    );
+                    buf.set_stringn(x + x_offset, y + y_offset, &symbol, 1, cell_style);
                 }
             }
 
