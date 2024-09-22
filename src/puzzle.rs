@@ -43,7 +43,7 @@ impl Cell {
         self.is_clue
     }
 
-    pub fn posible_wrong(&self) -> bool {
+    pub fn possible_wrong(&self) -> bool {
         self.possible_wrong
     }
 }
@@ -53,6 +53,7 @@ pub struct Puzzle {
     grid: Grid,
     clues: usize, // number of clues to keep in the puzzle
     is_solved: bool,
+    solution: Grid,
 }
 
 impl Puzzle {
@@ -61,6 +62,7 @@ impl Puzzle {
             grid: [[Cell::new(0, true); SIZE]; SIZE],
             clues: difficulty as usize,
             is_solved: false,
+            solution: [[Cell::new(0, true); SIZE]; SIZE],
         };
         puzzle.generate_full_solution();
         puzzle.remove_numbers();
@@ -111,6 +113,10 @@ impl Puzzle {
         }
     }
 
+    pub(crate) fn hint(&mut self, row: usize, col: usize) {
+        self.grid[row][col] = self.solution[row][col]
+    }
+
     fn check_if_solved(&self) -> bool {
         for row in 0..SIZE {
             for col in 0..SIZE {
@@ -125,6 +131,7 @@ impl Puzzle {
 
     fn generate_full_solution(&mut self) {
         fill_grid(&mut self.grid);
+        self.solution = self.grid;
     }
 
     // remove numbers from the grid while leaving 'clues' numbers
@@ -135,9 +142,27 @@ impl Puzzle {
             .collect();
         positions.shuffle(&mut rng);
 
+        let mut cells_removed = 0;
         let cells_to_remove = SIZE * SIZE - self.clues;
-        for &(row, col) in &positions[..cells_to_remove] {
-            self.grid[row][col] = Cell::new(0, false)
+
+        for &(row, col) in &positions {
+            let original_value = self.grid[row][col].value;
+            self.grid[row][col] = Cell::new(0, true);
+
+            let mut grid = self.grid.clone();
+            let mut solutions = 0;
+            count_solutions(&mut grid, &mut solutions);
+
+            if solutions == 1 {
+                cells_removed += 1;
+                self.grid[row][col].is_clue = false;
+            } else {
+                self.grid[row][col] = Cell::new(original_value, true);
+            }
+
+            if cells_removed >= cells_to_remove {
+                break;
+            }
         }
     }
 
@@ -147,9 +172,31 @@ impl Puzzle {
     }
 }
 
+fn count_solutions(grid: &mut Grid, count: &mut usize) {
+    for row in 0..SIZE {
+        for col in 0..SIZE {
+            if grid[row][col].value == 0 {
+                for num in 1..=9 {
+                    if is_safe(grid, row, col, num) {
+                        grid[row][col].value = num;
+
+                        count_solutions(grid, count);
+
+                        if *count > 1 {
+                            return;
+                        }
+                    }
+                }
+
+                return; // no valid number found, backtrack
+            }
+        }
+    }
+
+    *count += 1;
+}
+
 // recursive function to fill the grid with numbers that follow Sudoku rules
-//
-//
 fn fill_grid(grid: &mut Grid) -> bool {
     let mut numbers: Vec<u8> = (1..=9).collect();
     let mut rng = rand::thread_rng();
@@ -334,23 +381,23 @@ mod tests {
         let mut grid = [[Cell {
             value: 0,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         }; SIZE]; SIZE];
 
         grid[0][0] = Cell {
             value: 1,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         };
         grid[0][1] = Cell {
             value: 2,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         };
         grid[0][2] = Cell {
             value: 3,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         };
 
         assert!(!is_safe(&grid, 0, 3, 1));
@@ -362,17 +409,17 @@ mod tests {
         let mut grid = [[Cell {
             value: 0,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         }; SIZE]; SIZE];
 
         grid[0][0] = Cell {
             value: 1,
-            posible_wrong: false,
+            possible_wrong: false,
             is_clue: false,
         };
         grid[0][1] = Cell {
             value: 2,
-            posible_wrong: false,
+            possible_wrong: false,
             is_clue: false,
         };
 
@@ -385,18 +432,18 @@ mod tests {
         let mut grid = [[Cell {
             value: 0,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         }; SIZE]; SIZE];
 
         grid[0][0] = Cell {
             value: 1,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         };
         grid[1][0] = Cell {
             value: 2,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         };
 
         assert!(!is_safe(&grid, 2, 0, 1));
@@ -408,18 +455,18 @@ mod tests {
         let mut grid = [[Cell {
             value: 0,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         }; SIZE]; SIZE];
 
         grid[0][0] = Cell {
             value: 1,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         };
         grid[1][1] = Cell {
             value: 2,
             is_clue: false,
-            posible_wrong: false,
+            possible_wrong: false,
         };
 
         assert!(!is_safe(&grid, 1, 1, 1));
@@ -430,7 +477,7 @@ mod tests {
     fn test_is_safe_empty_cell() {
         let grid = [[Cell {
             value: 0,
-            posible_wrong: false,
+            possible_wrong: false,
             is_clue: false,
         }; SIZE]; SIZE];
 

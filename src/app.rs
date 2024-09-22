@@ -74,13 +74,15 @@ impl App {
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
-            KeyCode::Char('q') => self.exit(),
+            KeyCode::Char('Q') | KeyCode::Char('q') => self.exit(),
             KeyCode::Char('N') | KeyCode::Char('n') => {
                 self.new_game();
             }
-
             KeyCode::Char('R') | KeyCode::Char('r') => {
                 self.puzzle.reset();
+            }
+            KeyCode::Char('H') | KeyCode::Char('h') => {
+                self.puzzle.hint(self.selected_row, self.selected_col);
             }
             KeyCode::Left => {
                 self.selected_col = self.selected_col.saturating_sub(1);
@@ -158,6 +160,8 @@ impl Widget for &App {
                 "<R>".blue().bold(),
                 " New Game ".into(),
                 "<N>".blue().bold(),
+                " Hint ".into(),
+                "<H>".blue().bold(),
             ]));
 
             let title = Title::from(" Sudoku ".bold());
@@ -239,7 +243,7 @@ impl Widget for &App {
                             Style::default().fg(ratatui::style::Color::Yellow).bold(),
                         )
                     } else {
-                        let cell_style = if cell.posible_wrong() {
+                        let cell_style = if cell.possible_wrong() {
                             Style::default().fg(ratatui::style::Color::Red).bold()
                         } else {
                             Style::default().fg(ratatui::style::Color::Blue).bold()
