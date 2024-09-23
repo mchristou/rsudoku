@@ -1,7 +1,7 @@
 use argh::FromArgs;
 use std::io;
 
-use sudoku::{App, Difficulty};
+use rsudoku::{App, Difficulty};
 
 #[derive(FromArgs, Debug)]
 /// Cli to play Sudoku
